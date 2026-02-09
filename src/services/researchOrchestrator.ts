@@ -1,15 +1,15 @@
 // Research Orchestrator - Enhanced deep research workflow with massive source gathering
 
 import type { ChatMessage } from './aiService';
-import type { ResearchConfig, IntensityConfig } from '../config/settings';
+import type { ResearchConfig, IntensityConfig, ReportDetailLevel } from '../config/settings';
 import { AIService } from './aiService';
 import { SearchService } from './searchService';
 import { getIntensityConfig } from '../config/settings';
 
-// Maximum characters to send in a single AI prompt (conservative for local models)
-const MAX_CONTEXT_CHARS = 12000;
-const MAX_SOURCE_CONTENT_CHARS = 1500;
-const MAX_SYNTHESIS_BATCH = 3;
+// Context limits — raised for richer synthesis material
+const MAX_CONTEXT_CHARS = 32000;
+const MAX_SOURCE_CONTENT_CHARS = 3000;
+const MAX_SYNTHESIS_BATCH = 5;
 
 // ============================================================================
 // Types
@@ -535,7 +535,14 @@ Return ONLY a JSON array of numbers in order, e.g., [8, 6, 9, 4, 7]`
             const messages: ChatMessage[] = [
                 {
                     role: 'system',
-                    content: `Extract key facts and insights from each source relevant to the research query. For each source, provide a concise summary with the source number for citation purposes. Format: "[Source N] Key point 1. Key point 2..."`
+                    content: `You are an expert research analyst. Extract detailed, substantive information from each source relevant to the research query. For each source:
+- Provide a thorough summary (3-5 sentences minimum per source)
+- Include specific data points, statistics, dates, and named entities
+- Quote notable or impactful statements directly
+- Note the source's perspective, methodology, or authority
+- Identify unique insights not found in other sources
+
+Format: "[Source N] Detailed findings..." for each source. Do NOT be brief — thoroughness is critical.`
                 },
                 {
                     role: 'user',
@@ -571,7 +578,16 @@ Return ONLY a JSON array of numbers in order, e.g., [8, 6, 9, 4, 7]`
         const messages: ChatMessage[] = [
             {
                 role: 'system',
-                content: `Organize the source information into coherent themes. Identify 4-7 major themes or aspects covered by the sources. For each theme, synthesize the relevant information, noting agreements, disagreements, and gaps. Maintain source citations [Source N] throughout. Be concise.`
+                content: `You are a senior research analyst. Organize the source information into 5-8 coherent major themes or aspects. For each theme:
+
+1. Give it a clear, descriptive heading
+2. Write 2-4 detailed paragraphs synthesizing the relevant information
+3. Present specific evidence, data points, and direct quotes from sources
+4. Analyze areas of agreement and disagreement between sources
+5. Discuss the significance and implications of findings
+6. Identify any gaps or uncertainties
+
+Maintain source citations [Source N] throughout. Be thorough and analytical — each theme should read like a section of a professional report.`
             },
             {
                 role: 'user',
@@ -587,12 +603,16 @@ Return ONLY a JSON array of numbers in order, e.g., [8, 6, 9, 4, 7]`
         const messages: ChatMessage[] = [
             {
                 role: 'system',
-                content: `Analyze the connections between themes. Identify:
-1. How themes relate to and influence each other
-2. Overarching patterns or trends
-3. Contradictions or tensions between themes
-4. Implications and conclusions
-Maintain source citations where relevant.`
+                content: `You are a senior research analyst performing cross-theme analysis. Write a detailed, multi-paragraph analytical narrative that:
+
+1. **Interconnections**: Explain in detail how the identified themes relate to, reinforce, or contradict each other. Use specific examples.
+2. **Overarching Patterns**: Identify and elaborate on broad trends, shifts, or emerging patterns across all themes. Support with evidence.
+3. **Contradictions & Tensions**: Explore areas of disagreement or tension between themes in depth. Analyze why these contradictions exist.
+4. **Causal Relationships**: Trace cause-and-effect chains between different themes and findings.
+5. **Implications & Significance**: Discuss what these patterns mean for stakeholders, policy, industry, or future developments.
+6. **Emerging Questions**: Highlight important questions raised by the cross-theme analysis.
+
+Write at least 4-6 substantial paragraphs. Maintain source citations where relevant. This should read like the analysis section of a professional research paper.`
             },
             {
                 role: 'user',
@@ -608,15 +628,18 @@ Maintain source citations where relevant.`
         const messages: ChatMessage[] = [
             {
                 role: 'system',
-                content: `Create a comprehensive research synthesis that:
-1. Provides an authoritative overview of the topic
-2. Presents findings in a logical, flowing narrative
-3. Highlights key insights and their implications
-4. Notes areas of consensus and controversy
-5. Identifies gaps in current knowledge
-6. Maintains all source citations [Source N]
+                content: `You are an expert research synthesizer. Create a comprehensive, authoritative research synthesis from ${sourceCount} sources that:
 
-This synthesis from ${sourceCount} sources should read like an expert analysis, not a simple summary.`
+1. Opens with a compelling overview establishing the topic's significance and scope
+2. Presents findings as a flowing, detailed narrative organized by major themes
+3. Includes specific evidence: statistics, dates, quotes, named organizations and people
+4. Provides nuanced analysis of each major finding and its implications
+5. Discusses areas of consensus and active controversy with balanced treatment
+6. Identifies critical gaps in the current body of knowledge
+7. Draws well-supported conclusions about the state of the topic
+8. Maintains all source citations [Source N] throughout
+
+This synthesis should be extensive (at least 1500-2000 words), authoritative, and read like an expert analysis commissioned by a major research institution. Do NOT summarize — analyze in depth.`
             },
             {
                 role: 'user',
@@ -633,6 +656,25 @@ This synthesis from ${sourceCount} sources should read like an expert analysis, 
     // ========================================================================
 
     private async generateComprehensiveReport(
+        originalQuery: string,
+        refinedQuery: string,
+        sources: ResearchSource[],
+        synthesis: string,
+        onProgress: ResearchProgressCallback,
+        abortSignal?: AbortSignal
+    ): Promise<Omit<ResearchReport, 'metadata'>> {
+        const detailLevel: ReportDetailLevel = this.config.reportDetailLevel || 'detailed';
+
+        if (detailLevel === 'standard') {
+            return this.generateReportSingleShot(originalQuery, refinedQuery, sources, synthesis, onProgress, abortSignal);
+        } else {
+            return this.generateReportSectionBySection(originalQuery, refinedQuery, sources, synthesis, detailLevel, onProgress, abortSignal);
+        }
+    }
+
+    // -- Single-shot report (legacy / standard mode) --
+
+    private async generateReportSingleShot(
         originalQuery: string,
         refinedQuery: string,
         sources: ResearchSource[],
@@ -684,11 +726,9 @@ Write a comprehensive research report.`
 
         if (abortSignal?.aborted) throw new Error('Research cancelled');
 
-        // Generate the report
         let reportContent = '';
 
         if (this.config.enableStreaming) {
-            // Stream the report generation
             const response = await this.aiService.chat(messages, (chunk) => {
                 reportContent += chunk;
                 onProgress({
@@ -697,14 +737,13 @@ Write a comprehensive research report.`
                     progress: { current: 85, total: 100, phase: 'Writing Report' },
                     data: { streamedContent: reportContent }
                 });
-            });
+            }, { maxTokens: 4096, temperature: 0.3 });
             reportContent = response.content;
         } else {
-            const response = await this.aiService.chat(messages);
+            const response = await this.aiService.chat(messages, undefined, { maxTokens: 4096, temperature: 0.3 });
             reportContent = response.content;
         }
 
-        // Parse the report into sections
         const sections = this.parseReportSections(reportContent);
 
         return {
@@ -715,6 +754,310 @@ Write a comprehensive research report.`
             sources,
             generatedAt: new Date()
         };
+    }
+
+    // -- Section-by-section report (detailed / comprehensive mode) --
+
+    private async generateReportSectionBySection(
+        originalQuery: string,
+        refinedQuery: string,
+        sources: ResearchSource[],
+        synthesis: string,
+        detailLevel: ReportDetailLevel,
+        onProgress: ResearchProgressCallback,
+        abortSignal?: AbortSignal
+    ): Promise<Omit<ResearchReport, 'metadata'>> {
+        const sourceList = sources
+            .map((s, i) => `[${i + 1}] ${s.title} (relevance: ${s.relevanceScore}/10): ${s.url}`)
+            .join('\n');
+
+        const isComprehensive = detailLevel === 'comprehensive';
+        const sectionTokenBudget = isComprehensive ? 8192 : 6144;
+        const minSections = isComprehensive ? 7 : 5;
+        const maxSections = isComprehensive ? 12 : 8;
+
+        // Step 1: Generate report outline
+        onProgress({
+            type: 'writing',
+            message: 'Planning report structure...',
+            progress: { current: 80, total: 100, phase: 'Planning Report' }
+        });
+
+        if (abortSignal?.aborted) throw new Error('Research cancelled');
+
+        const outlineMessages: ChatMessage[] = [
+            {
+                role: 'system',
+                content: `You are an expert research report planner. Given a research synthesis and source list, create a detailed report outline.
+
+Generate ${minSections}-${maxSections} section titles with a 1-2 sentence description of what each section should cover. The report should follow this general structure but adapt to the topic:
+
+1. Executive Summary
+2. Introduction & Background
+3. Methodology Note
+4-${maxSections - 3}. Main findings sections (each covering a distinct theme or aspect)
+${maxSections - 2}. Analysis & Discussion (cross-cutting analysis)
+${maxSections - 1}. Limitations & Gaps
+${maxSections}. Conclusions & Recommendations
+
+Return ONLY a JSON array in this exact format:
+[
+  {"title": "Executive Summary", "description": "Overview of key findings..."},
+  {"title": "Introduction", "description": "Context and importance..."},
+  ...
+]`
+            },
+            {
+                role: 'user',
+                content: `Research Query: ${originalQuery}
+
+Synthesis highlights (for planning):
+${synthesis.slice(0, 8000)}
+
+Number of sources: ${sources.length}
+
+Generate the report outline as a JSON array.`
+            }
+        ];
+
+        let outline: { title: string; description: string }[] = [];
+        try {
+            const outlineResponse = await this.aiService.chat(outlineMessages, undefined, { maxTokens: 2048, temperature: 0.3 });
+            const jsonMatch = outlineResponse.content.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+                outline = JSON.parse(jsonMatch[0]);
+            }
+        } catch (e) {
+            console.error('Failed to parse report outline:', e);
+        }
+
+        // Fallback outline if parsing failed
+        if (outline.length < 3) {
+            outline = [
+                { title: 'Executive Summary', description: 'Comprehensive overview of all key findings and their significance' },
+                { title: 'Introduction', description: 'Context, background, and importance of the research topic' },
+                { title: 'Methodology Note', description: `Research approach and methodology, analyzing ${sources.length} sources` },
+                { title: 'Main Findings', description: 'Detailed presentation of primary research findings organized by theme' },
+                { title: 'Key Trends & Developments', description: 'Important trends, patterns, and recent developments in the field' },
+                { title: 'Stakeholder Perspectives', description: 'Different viewpoints and positions from key stakeholders' },
+                { title: 'Analysis & Discussion', description: 'Cross-cutting analysis, implications, and critical interpretation' },
+                { title: 'Limitations & Gaps', description: 'Areas not covered, data limitations, and remaining questions' },
+                { title: 'Conclusions & Recommendations', description: 'Key takeaways, actionable recommendations, and future directions' }
+            ];
+        }
+
+        // Step 2: Generate each section individually
+        const allSections: { title: string; content: string }[] = [];
+        let fullReportSoFar = '';
+
+        for (let i = 0; i < outline.length; i++) {
+            if (abortSignal?.aborted) throw new Error('Research cancelled');
+
+            const section = outline[i];
+            const sectionProgress = Math.round(82 + (i / outline.length) * 15);
+
+            onProgress({
+                type: 'writing',
+                message: `Writing section ${i + 1}/${outline.length}: ${section.title}...`,
+                progress: { current: sectionProgress, total: 100, phase: `Writing: ${section.title}` }
+            });
+
+            const isExecSummary = section.title.toLowerCase().includes('executive summary');
+            const isMethodology = section.title.toLowerCase().includes('methodology');
+
+            let sectionPrompt: string;
+
+            if (isExecSummary) {
+                // Executive summary is written last (after all other sections), but placed first
+                // We'll generate a placeholder and replace it at the end
+                allSections.push({ title: section.title, content: '__EXEC_SUMMARY_PLACEHOLDER__' });
+                continue;
+            } else if (isMethodology) {
+                sectionPrompt = `Write the "${section.title}" section for this research report.
+
+Section goal: ${section.description}
+
+This is a methodology/approach note for a report analyzing ${sources.length} sources across multiple search queries and synthesis iterations. Describe the systematic research approach: automated search query decomposition, source gathering, relevance scoring, hierarchical synthesis, and cross-theme analysis.
+
+Write 2-3 paragraphs. Use a professional, academic tone.`;
+            } else {
+                sectionPrompt = `Write the "${section.title}" section for this research report. This is section ${i + 1} of ${outline.length}.
+
+Section goal: ${section.description}
+
+Research Query: ${originalQuery}
+
+Research Synthesis (use this as your primary source material):
+${synthesis.slice(0, MAX_CONTEXT_CHARS)}
+
+Available Sources for citation (cite as [N]):
+${sourceList}
+
+${fullReportSoFar.length > 0 ? `\nPrevious sections already written (do NOT repeat this content, build upon it):\n${fullReportSoFar.slice(-4000)}` : ''}
+
+Requirements for this section:
+- Write ${isComprehensive ? '4-8' : '3-5'} detailed, substantive paragraphs
+- Include specific facts, data points, statistics, dates, and named entities from the synthesis
+- Use inline citations [1], [2], etc. referencing the source numbers above
+- Include direct quotes where impactful
+- Use ### for any subsections within this section
+- Use bullet points or numbered lists where they add clarity
+- Bold key terms and important findings
+- Maintain a professional, authoritative tone throughout
+- Do NOT include the section title as a header (it will be added automatically)
+- Do NOT write content for other sections — focus only on "${section.title}"
+
+Write this section now with full detail and depth.`;
+            }
+
+            const sectionMessages: ChatMessage[] = [
+                {
+                    role: 'system',
+                    content: `You are an expert research report writer producing a publication-quality research document. Write detailed, thorough, and analytically rigorous content. Every paragraph should contain substantive information supported by evidence and citations. Never produce placeholder or filler text. Your writing should match the quality and depth of reports produced by top-tier research institutions.`
+                },
+                {
+                    role: 'user',
+                    content: sectionPrompt
+                }
+            ];
+
+            let sectionContent = '';
+
+            if (this.config.enableStreaming) {
+                const response = await this.aiService.chat(sectionMessages, (chunk) => {
+                    sectionContent += chunk;
+                    // Stream the full report assembled so far
+                    const assembledReport = this.assembleReportForStream(originalQuery, allSections, sectionContent, section.title, sourceList, sources);
+                    onProgress({
+                        type: 'writing',
+                        message: `Writing section ${i + 1}/${outline.length}: ${section.title}...`,
+                        progress: { current: sectionProgress, total: 100, phase: `Writing: ${section.title}` },
+                        data: { streamedContent: assembledReport }
+                    });
+                }, { maxTokens: sectionTokenBudget, temperature: 0.3 });
+                sectionContent = response.content;
+            } else {
+                const response = await this.aiService.chat(sectionMessages, undefined, { maxTokens: sectionTokenBudget, temperature: 0.3 });
+                sectionContent = response.content;
+            }
+
+            allSections.push({ title: section.title, content: sectionContent.trim() });
+            fullReportSoFar += `\n\n## ${section.title}\n${sectionContent.trim()}`;
+        }
+
+        // Step 3: Generate executive summary from the full report
+        const execSummaryIdx = allSections.findIndex(s => s.content === '__EXEC_SUMMARY_PLACEHOLDER__');
+        if (execSummaryIdx !== -1) {
+            if (abortSignal?.aborted) throw new Error('Research cancelled');
+
+            onProgress({
+                type: 'writing',
+                message: 'Writing executive summary...',
+                progress: { current: 97, total: 100, phase: 'Executive Summary' }
+            });
+
+            const summaryMessages: ChatMessage[] = [
+                {
+                    role: 'system',
+                    content: `You are an expert research report writer. Write a comprehensive executive summary for the following research report. The executive summary should:
+
+1. Be 3-4 substantial paragraphs
+2. Highlight the most important findings, trends, and implications
+3. Mention key data points and statistics
+4. Note major areas of consensus and controversy
+5. Preview the report's conclusions and recommendations
+6. Be self-contained — a reader should understand the key takeaways from this alone
+7. Include relevant source citations [N]
+
+Write with authority and precision. This should read like the executive summary of a major research institution's report.`
+                },
+                {
+                    role: 'user',
+                    content: `Research Query: ${originalQuery}
+
+Full report content:
+${fullReportSoFar.slice(0, MAX_CONTEXT_CHARS)}
+
+Write the executive summary.`
+                }
+            ];
+
+            let execContent = '';
+            if (this.config.enableStreaming) {
+                const response = await this.aiService.chat(summaryMessages, (chunk) => {
+                    execContent += chunk;
+                    allSections[execSummaryIdx] = { title: allSections[execSummaryIdx].title, content: execContent };
+                    const assembledReport = this.assembleReportForStream(originalQuery, allSections, '', '', sourceList, sources);
+                    onProgress({
+                        type: 'writing',
+                        message: 'Writing executive summary...',
+                        progress: { current: 98, total: 100, phase: 'Executive Summary' },
+                        data: { streamedContent: assembledReport }
+                    });
+                }, { maxTokens: 4096, temperature: 0.3 });
+                execContent = response.content;
+            } else {
+                const response = await this.aiService.chat(summaryMessages, undefined, { maxTokens: 4096, temperature: 0.3 });
+                execContent = response.content;
+            }
+
+            allSections[execSummaryIdx] = { title: allSections[execSummaryIdx].title, content: execContent.trim() };
+        }
+
+        // Step 4: Generate references section from sources
+        const referencesContent = sources
+            .map((s, i) => `[${i + 1}] ${s.title} (relevance: ${s.relevanceScore}/10): ${s.url}`)
+            .join('\n');
+
+        allSections.push({ title: 'References', content: referencesContent });
+
+        // Use the executive summary as the report summary, or the first section content
+        const summarySection = allSections.find(s =>
+            s.title.toLowerCase().includes('executive summary') ||
+            s.title.toLowerCase().includes('summary')
+        );
+
+        return {
+            query: originalQuery,
+            refinedQuery: refinedQuery !== originalQuery ? refinedQuery : undefined,
+            summary: summarySection?.content || allSections[0]?.content || '',
+            sections: allSections,
+            sources,
+            generatedAt: new Date()
+        };
+    }
+
+    // Helper: assemble the full report markdown for streaming preview
+    private assembleReportForStream(
+        query: string,
+        completedSections: { title: string; content: string }[],
+        currentSectionContent: string,
+        currentSectionTitle: string,
+        _sourceList: string,
+        sources: ResearchSource[]
+    ): string {
+        let report = `# ${query}\n\n## Comprehensive Research Report\n\n---\n\n`;
+
+        for (const section of completedSections) {
+            if (section.content === '__EXEC_SUMMARY_PLACEHOLDER__') continue;
+            report += `## ${section.title}\n\n${section.content}\n\n---\n\n`;
+        }
+
+        if (currentSectionContent) {
+            report += `## ${currentSectionTitle}\n\n${currentSectionContent}\n\n`;
+        }
+
+        // Add sources summary at the bottom
+        report += `\n\n## Sources\n\n`;
+        const topSources = sources.slice(0, 20);
+        for (let i = 0; i < topSources.length; i++) {
+            report += `[${i + 1}] ${topSources[i].title}: ${topSources[i].url}\n`;
+        }
+        if (sources.length > 20) {
+            report += `\n... and ${sources.length - 20} more sources\n`;
+        }
+
+        return report;
     }
 
     private parseReportSections(content: string): { title: string; content: string }[] {

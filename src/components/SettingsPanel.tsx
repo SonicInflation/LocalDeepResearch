@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Settings, CheckCircle, XCircle, Loader2, ChevronDown, Clock, FileText } from 'lucide-react';
-import type { AppSettings, AIProviderType, ResearchIntensity } from '../config/settings';
+import type { AppSettings, AIProviderType, ResearchIntensity, ReportDetailLevel } from '../config/settings';
 import { loadSettings, saveSettings, DEFAULT_SETTINGS, INTENSITY_CONFIGS } from '../config/settings';
 import type { ModelInfo } from '../services/aiService';
 import { AIService } from '../services/aiService';
@@ -18,6 +18,12 @@ const INTENSITY_LABELS: Record<ResearchIntensity, { label: string; description: 
     deep: { label: '🔍 Deep', description: '~50 sources, 15-25 min' },
     comprehensive: { label: '📚 Comprehensive', description: '~100 sources, 30-50 min' },
     exhaustive: { label: '🏛️ Exhaustive', description: '~200 sources, 45-90 min' }
+};
+
+const DETAIL_LABELS: Record<ReportDetailLevel, { label: string; description: string }> = {
+    standard: { label: '📝 Standard', description: 'Single-pass report (~2K words)' },
+    detailed: { label: '📄 Detailed', description: 'Section-by-section (~4-6K words)' },
+    comprehensive: { label: '📰 Comprehensive', description: 'Deep section-by-section (~6K+ words)' }
 };
 
 export function SettingsPanel({ isOpen, onClose, onSettingsChange }: SettingsPanelProps) {
@@ -280,6 +286,25 @@ export function SettingsPanel({ isOpen, onClose, onSettingsChange }: SettingsPan
                                 <Clock size={16} />
                                 <span>{currentIntensity.estimatedMinutes[0]}-{currentIntensity.estimatedMinutes[1]} minutes</span>
                             </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label>Report Detail Level</label>
+                            <select
+                                value={settings.research.reportDetailLevel || 'detailed'}
+                                onChange={e => updateResearch({
+                                    reportDetailLevel: e.target.value as ReportDetailLevel
+                                })}
+                            >
+                                {Object.entries(DETAIL_LABELS).map(([key, { label, description }]) => (
+                                    <option key={key} value={key}>
+                                        {label} - {description}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="form-hint">
+                                Detailed and Comprehensive modes generate each section individually for much longer, richer reports.
+                            </span>
                         </div>
 
                         <div className="form-group checkbox-group">

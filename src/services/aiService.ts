@@ -31,21 +31,23 @@ export class AIService {
 
     async chat(
         messages: ChatMessage[],
-        onStream?: (chunk: string) => void
+        onStream?: (chunk: string) => void,
+        options?: { maxTokens?: number; temperature?: number }
     ): Promise<ChatCompletionResponse> {
         const endpoint = getEndpointForProvider(this.config);
 
         if (this.config.type === 'ollama') {
-            return this.chatOllama(endpoint, messages, onStream);
+            return this.chatOllama(endpoint, messages, onStream, options);
         } else {
-            return this.chatOpenAICompatible(endpoint, messages, onStream);
+            return this.chatOpenAICompatible(endpoint, messages, onStream, options);
         }
     }
 
     private async chatOpenAICompatible(
         baseUrl: string,
         messages: ChatMessage[],
-        onStream?: (chunk: string) => void
+        onStream?: (chunk: string) => void,
+        options?: { maxTokens?: number; temperature?: number }
     ): Promise<ChatCompletionResponse> {
         const url = `${baseUrl}/chat/completions`;
         const headers: Record<string, string> = {
@@ -56,14 +58,18 @@ export class AIService {
             headers['Authorization'] = `Bearer ${this.config.apiKey}`;
         }
 
+        const body: Record<string, unknown> = {
+            model: this.config.model,
+            messages,
+            stream: !!onStream
+        };
+        if (options?.maxTokens) body.max_tokens = options.maxTokens;
+        if (options?.temperature !== undefined) body.temperature = options.temperature;
+
         const response = await fetch(url, {
             method: 'POST',
             headers,
-            body: JSON.stringify({
-                model: this.config.model,
-                messages,
-                stream: !!onStream
-            })
+            body: JSON.stringify(body)
         });
 
         if (!response.ok) {
@@ -123,9 +129,14 @@ export class AIService {
     private async chatOllama(
         baseUrl: string,
         messages: ChatMessage[],
-        onStream?: (chunk: string) => void
+        onStream?: (chunk: string) => void,
+        options?: { maxTokens?: number; temperature?: number }
     ): Promise<ChatCompletionResponse> {
         const url = `${baseUrl}/api/chat`;
+
+        const ollamaOptions: Record<string, unknown> = {};
+        if (options?.maxTokens) ollamaOptions.num_predict = options.maxTokens;
+        if (options?.temperature !== undefined) ollamaOptions.temperature = options.temperature;
 
         const response = await fetch(url, {
             method: 'POST',
@@ -135,7 +146,8 @@ export class AIService {
             body: JSON.stringify({
                 model: this.config.model,
                 messages,
-                stream: !!onStream
+                stream: !!onStream,
+                ...(Object.keys(ollamaOptions).length > 0 ? { options: ollamaOptions } : {})
             })
         });
 
