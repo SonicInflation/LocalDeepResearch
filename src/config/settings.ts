@@ -4,6 +4,8 @@ export type AIProviderType = 'lmstudio' | 'ollama' | 'openai-compatible';
 
 export type ResearchIntensity = 'quick' | 'standard' | 'deep' | 'comprehensive' | 'exhaustive';
 
+export type ReportDetailLevel = 'standard' | 'detailed' | 'comprehensive';
+
 export interface AIProviderConfig {
     type: AIProviderType;
     endpoint: string;
@@ -19,6 +21,7 @@ export interface SearchConfig {
 
 export interface ResearchConfig {
     intensity: ResearchIntensity;
+    reportDetailLevel: ReportDetailLevel;
     enableClarifyingQuestions: boolean;
     enableStreaming: boolean;
     enableAdaptiveResearch: boolean;
@@ -110,6 +113,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     },
     research: {
         intensity: 'standard',
+        reportDetailLevel: 'detailed',
         enableClarifyingQuestions: true,
         enableStreaming: true,
         enableAdaptiveResearch: true,
