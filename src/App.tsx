@@ -99,7 +99,11 @@ function App() {
 
     const orchestrator = orchestratorRef.current || initializeOrchestrator();
 
+    // Local accumulator to avoid closure issues
+    const accumulatedSteps: ResearchStep[] = [];
+
     const handleProgress = (step: ResearchStep) => {
+      accumulatedSteps.push(step);
       setCurrentStep(step);
       setSteps(prev => [...prev, step]);
     };
@@ -114,16 +118,23 @@ function App() {
       setReport(result);
       setState('complete');
 
-      // Save to history
-      const activityLog = steps.map(s => s.message);
-      await historyService.saveSession({
-        query,
-        report: result,
-        activityLog
-      });
-      // Refresh history list
-      const updatedSessions = await historyService.getSessions();
-      setSessions(updatedSessions);
+      // Save to history using the local accumulator
+      console.log('[History] Saving session with', accumulatedSteps.length, 'steps');
+      const activityLog = accumulatedSteps.map(s => s.message);
+      try {
+        await historyService.saveSession({
+          query,
+          report: result,
+          activityLog
+        });
+        console.log('[History] Session saved successfully');
+        // Refresh history list
+        const updatedSessions = await historyService.getSessions();
+        console.log('[History] Loaded', updatedSessions.length, 'sessions from IndexedDB');
+        setSessions(updatedSessions);
+      } catch (saveErr) {
+        console.error('[History] Failed to save session:', saveErr);
+      }
     } catch (err) {
       if (err instanceof Error && err.message === 'Research cancelled') {
         setState('idle');
@@ -132,7 +143,7 @@ function App() {
         setState('idle');
       }
     }
-  }, [initializeOrchestrator, steps]);
+  }, [initializeOrchestrator]);
 
   const handleClarifyingComplete = useCallback((answers: Map<string, string>) => {
     startResearchExecution(currentQuery, answers);
