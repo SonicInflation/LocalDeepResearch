@@ -15,10 +15,12 @@
     "electron:preview": "vite build && electron ."
   },
   "dependencies": {
+    "html2pdf.js": "^0.14.0",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
+    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
