@@ -586,6 +586,30 @@ body {
   text-decoration: underline;
 }
 
+/* Inline Citation Links */
+.citation-group {
+  font-size: 0.75em;
+  line-height: 1;
+  vertical-align: super;
+  margin: 0 1px;
+}
+
+.citation-link {
+  color: var(--accent-primary) !important;
+  text-decoration: none !important;
+  font-weight: 600;
+  padding: 1px 2px;
+  border-radius: 3px;
+  transition: var(--transition-fast);
+  cursor: pointer;
+}
+
+.citation-link:hover {
+  background: var(--accent-primary);
+  color: white !important;
+  text-decoration: none !important;
+}
+
 .section-content table {
   width: 100%;
   border-collapse: collapse;
