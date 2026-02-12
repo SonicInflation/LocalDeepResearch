@@ -131,10 +131,21 @@ function buildPdfDocument(report: ResearchReport): string {
         hour: '2-digit', minute: '2-digit'
     });
 
-    const sectionsHtml = report.sections.map(section => {
-        const contentHtml = markdownToHtml(section.content, report.sources);
-        return `<div class="section"><h2>${section.title}</h2>${contentHtml}</div>`;
-    }).join('\n');
+    const sectionsHtml = report.sections
+        .filter(section => section.title.toLowerCase() !== 'references')
+        .map(section => {
+            // Strip duplicate header if the content starts with the same title
+            let content = section.content;
+            const headerPatterns = [
+                new RegExp(`^#{1,3}\\s*${section.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\n`, 'i'),
+                new RegExp(`^\\*\\*${section.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\*\\*\\s*\n`, 'i'),
+            ];
+            for (const pattern of headerPatterns) {
+                content = content.replace(pattern, '');
+            }
+            const contentHtml = markdownToHtml(content, report.sources);
+            return `<div class="section"><h2>${section.title}</h2>${contentHtml}</div>`;
+        }).join('\n');
 
     const sourcesHtml = report.sources.map((source, i) => `
         <div class="source-entry">

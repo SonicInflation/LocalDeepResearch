@@ -54,7 +54,9 @@ function App() {
     const orchestrator = new ResearchOrchestrator(
       aiService,
       searchService,
-      settings.research
+      settings.research,
+      settings.aiProvider.model,
+      settings.search.searxngUrl
     );
     orchestratorRef.current = orchestrator;
     return orchestrator;
