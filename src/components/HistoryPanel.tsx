@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import { X, Trash2, Clock, FileText, ChevronRight } from 'lucide-react';
 import type { ResearchSession } from '../services/historyService';
 
@@ -16,6 +17,49 @@ export function HistoryPanel({
     onSelectSession,
     onDeleteSession
 }: HistoryPanelProps) {
+    const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Escape key to close
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                if (pendingDeleteId) {
+                    setPendingDeleteId(null);
+                } else {
+                    onClose();
+                }
+            }
+        };
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [isOpen, onClose, pendingDeleteId]);
+
+    // Focus trap
+    useEffect(() => {
+        if (!isOpen || !panelRef.current) return;
+        const panel = panelRef.current;
+        const focusable = panel.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        first.focus();
+
+        const trap = (e: KeyboardEvent) => {
+            if (e.key !== 'Tab') return;
+            if (e.shiftKey) {
+                if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+            } else {
+                if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+            }
+        };
+        panel.addEventListener('keydown', trap);
+        return () => panel.removeEventListener('keydown', trap);
+    }, [isOpen, sessions, pendingDeleteId]);
+
     if (!isOpen) return null;
 
     const formatDate = (date: Date) => {
@@ -37,10 +81,16 @@ export function HistoryPanel({
     return (
         <>
             <div className="history-overlay" onClick={onClose} />
-            <div className="history-panel">
+            <div
+                className="history-panel"
+                ref={panelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Research history"
+            >
                 <div className="history-header">
                     <h2>Research History</h2>
-                    <button className="close-btn" onClick={onClose}>
+                    <button className="close-btn" onClick={onClose} aria-label="Close history">
                         <X size={20} />
                     </button>
                 </div>
@@ -61,7 +111,7 @@ export function HistoryPanel({
                                     onClick={() => onSelectSession(session)}
                                 >
                                     <div className="history-item-content">
-                                        <div className="history-item-query">
+                                        <div className="history-item-query" title={session.query}>
                                             {truncateQuery(session.query)}
                                         </div>
                                         <div className="history-item-meta">
@@ -76,17 +126,40 @@ export function HistoryPanel({
                                         </div>
                                     </div>
                                     <div className="history-item-actions">
-                                        <button
-                                            className="delete-btn"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onDeleteSession(session.id);
-                                            }}
-                                            title="Delete"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                        <ChevronRight size={20} className="chevron" />
+                                        {pendingDeleteId === session.id ? (
+                                            <div className="delete-confirm" onClick={e => e.stopPropagation()}>
+                                                <span className="delete-confirm-text">Delete?</span>
+                                                <button
+                                                    className="delete-confirm-yes"
+                                                    onClick={() => {
+                                                        onDeleteSession(session.id);
+                                                        setPendingDeleteId(null);
+                                                    }}
+                                                >
+                                                    Yes
+                                                </button>
+                                                <button
+                                                    className="delete-confirm-no"
+                                                    onClick={() => setPendingDeleteId(null)}
+                                                >
+                                                    No
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    className="delete-btn"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setPendingDeleteId(session.id);
+                                                    }}
+                                                    aria-label={`Delete research: ${truncateQuery(session.query, 30)}`}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                                <ChevronRight size={20} className="chevron" />
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             ))}

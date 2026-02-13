@@ -23,6 +23,9 @@ declare global {
 function markdownToHtml(md: string, sources: ResearchSource[]): string {
     let html = md;
 
+    // Collapse multiple consecutive blank lines into one (reduces excess whitespace)
+    html = html.replace(/\n{3,}/g, '\n\n');
+
     // Escape HTML
     html = html
         .replace(/&/g, '&amp;')
@@ -58,7 +61,7 @@ function markdownToHtml(md: string, sources: ResearchSource[]): string {
             const idx = parseInt(num) - 1;
             const source = sources[idx];
             if (source?.url) {
-                return `<a href="${source.url}" class="citation">[${num}]</a>`;
+                return `<a href="${source.url}" class="citation" target="_blank">[${num}]</a>`;
             }
             return `[${num}]`;
         }
@@ -151,7 +154,7 @@ function buildPdfDocument(report: ResearchReport): string {
         <div class="source-entry">
             <span class="source-num">[${i + 1}]</span>
             <div class="source-detail">
-                <a href="${source.url}" class="source-name">${source.title}</a>
+                <a href="${source.url}" class="source-name" target="_blank">${source.title}</a>
                 <div class="source-url">${source.url}</div>
             </div>
         </div>
@@ -172,7 +175,7 @@ function buildPdfDocument(report: ResearchReport): string {
     body {
         font-family: Georgia, 'Times New Roman', serif;
         font-size: 11pt;
-        line-height: 1.7;
+        line-height: 1.5;
         color: #1a1a1a;
         background: #fff;
     }
@@ -218,7 +221,7 @@ function buildPdfDocument(report: ResearchReport): string {
 
     /* ---- Sections ---- */
     .section {
-        margin-bottom: 22px;
+        margin-bottom: 14px;
     }
 
     /* Keep headings with their content */
@@ -241,10 +244,10 @@ function buildPdfDocument(report: ResearchReport): string {
         font-size: 12.5pt;
         font-weight: 600;
         color: #374151;
-        margin: 16px 0 8px;
+        margin: 10px 0 4px;
     }
 
-    p { margin-bottom: 9px; text-align: justify; }
+    p { margin-bottom: 5px; text-align: justify; }
 
     strong { font-weight: 700; color: #111827; }
     em { font-style: italic; }
@@ -260,14 +263,14 @@ function buildPdfDocument(report: ResearchReport): string {
     a { color: #2563eb; text-decoration: none; }
     a:hover { text-decoration: underline; }
 
-    /* Citation links */
+    /* Citation links — no position/vertical-align tricks; Chromium's printToPDF
+       skips link annotations for repositioned elements */
     a.citation {
         color: #2563eb;
         font-weight: 600;
         font-size: 0.85em;
-        vertical-align: super;
-        line-height: 0;
-        text-decoration: underline;
+        text-decoration: none;
+        margin: 0 1px;
     }
 
     /* ---- Lists ---- */
@@ -304,7 +307,7 @@ function buildPdfDocument(report: ResearchReport): string {
         color: #374151;
     }
 
-    hr { border: none; border-top: 1px solid #e5e7eb; margin: 18px 0; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
 
     /* ---- References ---- */
     .sources-section {
@@ -357,7 +360,11 @@ function buildPdfDocument(report: ResearchReport): string {
     /* Print-specific overrides */
     @media print {
         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .section { page-break-inside: avoid; }
+        /* Do NOT use page-break-inside: avoid on .section — it causes large
+           white gaps when a section is too big to fit on the remaining page */
+        .section h2 { page-break-after: avoid; }
+        .section h3 { page-break-after: avoid; }
+        p { orphans: 2; widows: 2; }
     }
 </style>
 </head>
@@ -453,9 +460,13 @@ export async function exportReportAsPdf(
     const html = buildPdfDocument(report);
     const filename = getFilename(report.query);
 
+    console.log('[PDF Export] electronAPI available:', !!window.electronAPI);
+    console.log('[PDF Export] printToPdf available:', !!window.electronAPI?.printToPdf);
+
     if (window.electronAPI?.printToPdf) {
         await exportViaElectron(html, filename, onProgress);
     } else {
+        console.warn('[PDF Export] Falling back to browser print — Electron printToPdf not available');
         exportViaPrint(html, onProgress);
     }
 }

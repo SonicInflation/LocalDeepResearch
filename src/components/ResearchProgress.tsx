@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Search, BookOpen, Brain, Check, Loader2, FileText } from 'lucide-react';
 import type { ResearchStep } from '../services/researchOrchestrator';
 
@@ -30,8 +31,15 @@ const PHASE_LABELS: Record<string, string> = {
 };
 
 export function ResearchProgress({ steps, currentStep, onCancel, startTime, intensity }: ResearchProgressProps) {
+    const [now, setNow] = useState(Date.now());
+
+    useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(interval);
+    }, []);
+
     const elapsedSeconds = startTime
-        ? Math.floor((Date.now() - startTime.getTime()) / 1000)
+        ? Math.floor((now - startTime.getTime()) / 1000)
         : 0;
 
     const formatTime = (seconds: number) => {
@@ -69,7 +77,11 @@ export function ResearchProgress({ steps, currentStep, onCancel, startTime, inte
                         <span className="time-value">{formatTime(elapsedSeconds)}</span>
                         <span className="time-label">elapsed</span>
                     </div>
-                    <button className="cancel-btn" onClick={onCancel}>
+                    <button className="cancel-btn" onClick={() => {
+                        if (window.confirm('Cancel this research session?')) {
+                            onCancel();
+                        }
+                    }}>
                         Cancel
                     </button>
                 </div>
@@ -118,7 +130,7 @@ export function ResearchProgress({ steps, currentStep, onCancel, startTime, inte
             </div>
 
             {/* Current Activity */}
-            <div className="current-activity">
+            <div className="current-activity" aria-live="polite">
                 {currentStep && (
                     <div className="activity-message">
                         <Loader2 size={16} className="spin" />
@@ -141,7 +153,7 @@ export function ResearchProgress({ steps, currentStep, onCancel, startTime, inte
                                 className={`log-entry ${isCurrent ? 'current' : ''}`}
                             >
                                 <Icon size={14} />
-                                <span className="log-message">{step.message}</span>
+                                <span className="log-message" title={step.message}>{step.message}</span>
                             </div>
                         );
                     })}

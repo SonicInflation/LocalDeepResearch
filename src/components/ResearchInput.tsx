@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import { Search, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Sparkles, TrendingUp } from 'lucide-react';
+import { getTrendingTopics } from '../services/trendingTopicsService';
 
 interface ResearchInputProps {
     onStartResearch: (query: string) => void;
     isResearching: boolean;
+    searxngUrl: string;
 }
 
-const EXAMPLE_QUERIES = [
+const FALLBACK_QUERIES = [
     "What are the latest developments in quantum computing?",
     "Compare the pros and cons of Rust vs Go for backend development",
     "How does mRNA vaccine technology work?",
@@ -14,8 +16,21 @@ const EXAMPLE_QUERIES = [
     "Explain the current state of nuclear fusion research"
 ];
 
-export function ResearchInput({ onStartResearch, isResearching }: ResearchInputProps) {
+export function ResearchInput({ onStartResearch, isResearching, searxngUrl }: ResearchInputProps) {
     const [query, setQuery] = useState('');
+    const [displayedExamples, setDisplayedExamples] = useState<string[]>(FALLBACK_QUERIES);
+    const [isTrending, setIsTrending] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        getTrendingTopics(searxngUrl).then(result => {
+            if (!cancelled) {
+                setDisplayedExamples(result.topics);
+                setIsTrending(result.isTrending);
+            }
+        });
+        return () => { cancelled = true; };
+    }, [searxngUrl]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -77,11 +92,17 @@ export function ResearchInput({ onStartResearch, isResearching }: ResearchInputP
             </form>
 
             <div className="examples-section">
-                <p className="examples-label">Try an example:</p>
+                <p className="examples-label">
+                    {isTrending ? (
+                        <><TrendingUp size={14} /> Trending topics:</>
+                    ) : (
+                        'Try an example:'
+                    )}
+                </p>
                 <div className="examples-list">
-                    {EXAMPLE_QUERIES.map((example, i) => (
+                    {displayedExamples.map((example, i) => (
                         <button
-                            key={i}
+                            key={`${isTrending}-${i}`}
                             className="example-btn"
                             onClick={() => handleExampleClick(example)}
                             disabled={isResearching}

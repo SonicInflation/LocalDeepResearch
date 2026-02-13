@@ -96,7 +96,7 @@ export function ResearchReportView({ report, onNewResearch }: ResearchReportView
     const handleCopy = async (content: string, sectionId: string) => {
         await navigator.clipboard.writeText(content);
         setCopiedSection(sectionId);
-        setTimeout(() => setCopiedSection(null), 2000);
+        setTimeout(() => setCopiedSection(null), 3000);
     };
 
     const handleCopyAll = async () => {
@@ -110,7 +110,7 @@ export function ResearchReportView({ report, onNewResearch }: ResearchReportView
 
         await navigator.clipboard.writeText(`# ${report.query}\n\n${fullContent}\n\n---\n\n## Sources\n\n${sources}`);
         setCopiedSection('all');
-        setTimeout(() => setCopiedSection(null), 2000);
+        setTimeout(() => setCopiedSection(null), 3000);
     };
 
     const handleExportMd = () => {
@@ -153,7 +153,7 @@ export function ResearchReportView({ report, onNewResearch }: ResearchReportView
     return (
         <div className="research-report">
             <div className="report-header">
-                <button className="back-btn" onClick={onNewResearch}>
+                <button className="back-btn" onClick={onNewResearch} aria-label="Start new research">
                     <ArrowLeft size={18} />
                     New Research
                 </button>
@@ -206,6 +206,7 @@ export function ResearchReportView({ report, onNewResearch }: ResearchReportView
                                 className="copy-btn"
                                 onClick={() => handleCopy(section.content, `section-${index}`)}
                                 title="Copy section"
+                                aria-label={`Copy ${section.title}`}
                             >
                                 {copiedSection === `section-${index}` ? (
                                     <Check size={14} />

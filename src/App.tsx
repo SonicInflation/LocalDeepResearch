@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { Settings, History } from 'lucide-react';
 import { SettingsPanel } from './components/SettingsPanel';
 import { HistoryPanel } from './components/HistoryPanel';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ResearchInput } from './components/ResearchInput';
 import { ResearchProgress } from './components/ResearchProgress';
 import { ResearchReportView } from './components/ResearchReportView';
@@ -201,6 +202,7 @@ function App() {
             className="header-btn"
             onClick={() => setHistoryOpen(true)}
             title="History"
+            aria-label="Open research history"
           >
             <History size={20} />
           </button>
@@ -208,6 +210,7 @@ function App() {
             className="header-btn"
             onClick={() => setSettingsOpen(true)}
             title="Settings"
+            aria-label="Open settings"
           >
             <Settings size={20} />
           </button>
@@ -216,9 +219,9 @@ function App() {
 
       <main className="app-main">
         {error && (
-          <div className="error-banner">
+          <div className="error-banner" role="alert">
             <span>⚠️ {error}</span>
-            <button onClick={() => setError(null)}>×</button>
+            <button onClick={() => setError(null)} aria-label="Dismiss error">×</button>
           </div>
         )}
 
@@ -226,6 +229,7 @@ function App() {
           <ResearchInput
             onStartResearch={handleStartResearch}
             isResearching={false}
+            searxngUrl={settings.search.searxngUrl}
           />
         )}
 
@@ -273,4 +277,12 @@ function App() {
   );
 }
 
-export default App;
+function AppWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+export default AppWithErrorBoundary;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Settings, CheckCircle, XCircle, Loader2, ChevronDown, Clock, FileText } from 'lucide-react';
 import type { AppSettings, AIProviderType, ResearchIntensity, ReportDetailLevel } from '../config/settings';
 import { loadSettings, saveSettings, DEFAULT_SETTINGS, INTENSITY_CONFIGS } from '../config/settings';
@@ -106,11 +106,48 @@ export function SettingsPanel({ isOpen, onClose, onSettingsChange }: SettingsPan
     };
 
     const handleReset = () => {
+        if (!window.confirm('Reset all settings to defaults?')) return;
         setSettings(DEFAULT_SETTINGS);
         setAiStatus('idle');
         setSearchStatus('idle');
         setAvailableModels([]);
     };
+
+    const panelRef = useRef<HTMLDivElement>(null);
+
+    // Escape key to close
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [isOpen, onClose]);
+
+    // Focus trap
+    useEffect(() => {
+        if (!isOpen || !panelRef.current) return;
+        const panel = panelRef.current;
+        const focusable = panel.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        first.focus();
+
+        const trap = (e: KeyboardEvent) => {
+            if (e.key !== 'Tab') return;
+            if (e.shiftKey) {
+                if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+            } else {
+                if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+            }
+        };
+        panel.addEventListener('keydown', trap);
+        return () => panel.removeEventListener('keydown', trap);
+    }, [isOpen]);
 
     const currentIntensity = INTENSITY_CONFIGS[settings.research.intensity];
 
@@ -118,11 +155,18 @@ export function SettingsPanel({ isOpen, onClose, onSettingsChange }: SettingsPan
 
     return (
         <div className="settings-overlay" onClick={onClose}>
-            <div className="settings-panel" onClick={e => e.stopPropagation()}>
+            <div
+                className="settings-panel"
+                ref={panelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Settings"
+                onClick={e => e.stopPropagation()}
+            >
                 <div className="settings-header">
                     <Settings size={24} />
                     <h2>Settings</h2>
-                    <button className="close-btn" onClick={onClose}>×</button>
+                    <button className="close-btn" onClick={onClose} aria-label="Close settings">×</button>
                 </div>
 
                 <div className="settings-content">

@@ -22,6 +22,7 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false,
+            sandbox: false,
             webSecurity: false
         },
         titleBarStyle: 'hiddenInset',
@@ -112,7 +113,8 @@ ipcMain.handle('print-to-pdf', async (_event, { html, defaultFilename }: { html:
                 bottom: 0.8,
                 left: 0.6,
                 right: 0.6
-            }
+            },
+            generateTaggedPDF: true
         })
 
         // Write the PDF file
