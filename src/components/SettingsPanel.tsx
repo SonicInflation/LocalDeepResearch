@@ -409,6 +409,25 @@ export function SettingsPanel({ isOpen, onClose, onSettingsChange }: SettingsPan
                             </div>
                         )}
                     </section>
+
+                    {/* General */}
+                    <section className="settings-section">
+                        <h3>General</h3>
+
+                        <div className="form-group checkbox-group">
+                            <label className="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.enableNotifications}
+                                    onChange={e => setSettings(prev => ({
+                                        ...prev,
+                                        enableNotifications: e.target.checked
+                                    }))}
+                                />
+                                <span>Show desktop notification when research completes</span>
+                            </label>
+                        </div>
+                    </section>
                 </div>
 
                 <div className="settings-footer">

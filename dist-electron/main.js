@@ -1,82 +1,64 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
-import { fileURLToPath } from "url";
-import path from "path";
-const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
-process.env.DIST = path.join(__dirname$1, "../dist");
-process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname$1, "../public");
-let mainWindow = null;
-const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
-function createWindow() {
-  mainWindow = new BrowserWindow({
+import { app as n, BrowserWindow as l, ipcMain as c, dialog as P } from "electron";
+import { fileURLToPath as y } from "url";
+import t from "path";
+const d = t.dirname(y(import.meta.url));
+process.env.DIST = t.join(d, "../dist");
+process.env.VITE_PUBLIC = n.isPackaged ? process.env.DIST : t.join(d, "../public");
+let e = null;
+const f = process.env.VITE_DEV_SERVER_URL;
+function p() {
+  e = new l({
     width: 1400,
     height: 900,
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
-      preload: path.join(__dirname$1, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-      webSecurity: false
+      preload: t.join(d, "preload.js"),
+      contextIsolation: !0,
+      nodeIntegration: !1,
+      sandbox: !1,
+      webSecurity: !1
     },
     titleBarStyle: "hiddenInset",
-    backgroundColor: "#0f0f23"
-  });
-  if (VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(VITE_DEV_SERVER_URL);
-    mainWindow.webContents.openDevTools();
-  } else {
-    mainWindow.loadFile(path.join(process.env.DIST, "index.html"));
-  }
-  mainWindow.on("closed", () => {
-    mainWindow = null;
+    trafficLightPosition: { x: 16, y: 16 },
+    backgroundColor: "#0a0a0f"
+  }), f ? (e.loadURL(f), e.webContents.openDevTools()) : e.loadFile(t.join(process.env.DIST, "index.html")), e.on("closed", () => {
+    e = null;
   });
 }
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+n.on("window-all-closed", () => {
+  process.platform !== "darwin" && n.quit();
 });
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+n.on("activate", () => {
+  l.getAllWindows().length === 0 && p();
 });
-app.whenReady().then(createWindow);
-ipcMain.handle("get-settings", async () => {
-  return null;
-});
-ipcMain.handle("save-settings", async (_event, settings) => {
-  return { success: true, settings };
-});
-ipcMain.handle("print-to-pdf", async (_event, { html, defaultFilename }) => {
-  const fs = await import("fs");
-  const os = await import("os");
-  const result = await dialog.showSaveDialog({
-    defaultPath: defaultFilename,
+n.whenReady().then(p);
+c.handle("get-settings", async () => null);
+c.handle("save-settings", async (w, o) => ({ success: !0, settings: o }));
+c.handle("print-to-pdf", async (w, { html: o, defaultFilename: u }) => {
+  const a = await import("fs"), h = await import("os"), i = await P.showSaveDialog({
+    defaultPath: u,
     filters: [{ name: "PDF", extensions: ["pdf"] }]
   });
-  if (result.canceled || !result.filePath) {
-    return { success: false, canceled: true };
-  }
-  const tmpFile = path.join(os.tmpdir(), `ldr-pdf-${Date.now()}.html`);
-  fs.writeFileSync(tmpFile, html, "utf-8");
-  const pdfWindow = new BrowserWindow({
+  if (i.canceled || !i.filePath)
+    return { success: !1, canceled: !0 };
+  const s = t.join(h.tmpdir(), `ldr-pdf-${Date.now()}.html`);
+  a.writeFileSync(s, o, "utf-8");
+  const r = new l({
     width: 794,
     // A4 width at 96 DPI
     height: 1123,
     // A4 height at 96 DPI
-    show: false,
+    show: !1,
     webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false
+      contextIsolation: !0,
+      nodeIntegration: !1
     }
   });
   try {
-    await pdfWindow.loadFile(tmpFile);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    const pdfBuffer = await pdfWindow.webContents.printToPDF({
-      printBackground: true,
+    await r.loadFile(s), await new Promise((g) => setTimeout(g, 800));
+    const m = await r.webContents.printToPDF({
+      printBackground: !0,
       pageSize: "A4",
       margins: {
         top: 0.6,
@@ -84,14 +66,13 @@ ipcMain.handle("print-to-pdf", async (_event, { html, defaultFilename }) => {
         left: 0.6,
         right: 0.6
       },
-      generateTaggedPDF: true
+      generateTaggedPDF: !0
     });
-    fs.writeFileSync(result.filePath, pdfBuffer);
-    return { success: true, filePath: result.filePath };
+    return a.writeFileSync(i.filePath, m), { success: !0, filePath: i.filePath };
   } finally {
-    pdfWindow.destroy();
+    r.destroy();
     try {
-      fs.unlinkSync(tmpFile);
+      a.unlinkSync(s);
     } catch {
     }
   }

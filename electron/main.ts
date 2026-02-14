@@ -26,7 +26,8 @@ function createWindow() {
             webSecurity: false
         },
         titleBarStyle: 'hiddenInset',
-        backgroundColor: '#0f0f23'
+        trafficLightPosition: { x: 16, y: 16 },
+        backgroundColor: '#0a0a0f'
     })
 
     if (VITE_DEV_SERVER_URL) {

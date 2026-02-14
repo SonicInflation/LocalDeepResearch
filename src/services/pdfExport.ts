@@ -13,6 +13,7 @@ declare global {
     interface Window {
         electronAPI?: {
             printToPdf: (html: string, defaultFilename: string) => Promise<{ success: boolean; canceled?: boolean; filePath?: string }>;
+            platform: string;
         };
     }
 }

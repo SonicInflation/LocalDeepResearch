@@ -37,6 +37,35 @@
   --transition-normal: 250ms ease;
 }
 
+/* Light mode overrides */
+:root[data-theme="light"] {
+  --bg-primary: #f8f8f8;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f0f0;
+  --bg-card: #ffffff;
+  --bg-hover: #e8e8e8;
+
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --text-muted: #888888;
+
+  --accent-primary: #dc2626;
+  --accent-secondary: #b91c1c;
+  --accent-gradient: linear-gradient(135deg, #991b1b 0%, #dc2626 50%, #ef4444 100%);
+
+  --success: #16a34a;
+  --error: #dc2626;
+  --warning: #d97706;
+
+  --border-color: #e0e0e0;
+  --border-glow: rgba(220, 38, 38, 0.2);
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 30px rgba(220, 38, 38, 0.1);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -49,6 +78,7 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
 /* App Layout */
@@ -68,13 +98,28 @@ body {
   -webkit-app-region: drag;
 }
 
+/* macOS: add left padding for traffic light buttons */
+.app-header[data-platform="darwin"] {
+  padding-left: 80px;
+}
+
+/* Spacer mirrors header-actions width so title stays centered */
+.header-spacer {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}
+
 .header-title {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.5px;
+  flex: 1;
+  text-align: center;
 }
 
 .logo {
@@ -222,8 +267,9 @@ body {
 .spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.8;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1523,6 +1569,52 @@ select:focus-visible {
   border-color: var(--accent-primary);
 }
 
+.custom-answer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.custom-answer-toggle:hover {
+  color: var(--text-secondary);
+  border-color: var(--text-muted);
+}
+
+.custom-answer-form {
+  display: flex;
+  gap: 10px;
+}
+
+.custom-answer-form input {
+  flex: 1;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 15px;
+  transition: var(--transition-fast);
+}
+
+.custom-answer-form input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.confirm-options-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .confirm-options {
   display: flex;
   gap: 16px;
@@ -1546,7 +1638,7 @@ select:focus-visible {
 }
 
 .confirm-btn.yes:hover {
-  background: #1ea350;
+  background: #16a34a;
 }
 
 .confirm-btn.no {
@@ -1614,10 +1706,44 @@ select:focus-visible {
 }
 
 .checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent-primary);
+  position: relative;
+  width: 40px;
+  height: 22px;
+  appearance: none;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
   cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.checkbox-label input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.checkbox-label input[type="checkbox"]:checked {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.checkbox-label input[type="checkbox"]:checked::after {
+  transform: translateX(18px) translateY(-50%);
+  background: #fff;
+}
+
+.checkbox-label input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 .checkbox-label span {
@@ -1658,6 +1784,8 @@ input[type="range"]::-webkit-slider-thumb {
   display: flex;
   gap: 8px;
   -webkit-app-region: no-drag;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .header-btn {

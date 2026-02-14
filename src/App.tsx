@@ -1,5 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Settings, History } from 'lucide-react';
+import { Settings, History, Sun, Moon, Monitor } from 'lucide-react';
+import type { ThemeMode } from './config/settings';
+import { saveSettings } from './config/settings';
 import { SettingsPanel } from './components/SettingsPanel';
 import { HistoryPanel } from './components/HistoryPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -40,10 +42,55 @@ function App() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const orchestratorRef = useRef<ResearchOrchestrator | null>(null);
 
+  // Detect platform for OS-specific styling (macOS traffic lights, etc.)
+  const [platform, setPlatform] = useState<string>('');
+  useEffect(() => {
+    setPlatform(window.electronAPI?.platform || '');
+  }, []);
+
   // Load history on mount
   useEffect(() => {
     historyService.getSessions().then(setSessions).catch(console.error);
   }, []);
+
+  // Request notification permission when enabled
+  useEffect(() => {
+    if (settings.enableNotifications && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, [settings.enableNotifications]);
+
+  // Theme management
+  useEffect(() => {
+    const applyTheme = (mode: ThemeMode) => {
+      let resolved: 'light' | 'dark';
+      if (mode === 'system') {
+        resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      } else {
+        resolved = mode;
+      }
+      document.documentElement.setAttribute('data-theme', resolved);
+    };
+
+    applyTheme(settings.theme);
+
+    // Listen for OS theme changes when in system mode
+    if (settings.theme === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = () => applyTheme('system');
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [settings.theme]);
+
+  const cycleTheme = useCallback(() => {
+    const order: ThemeMode[] = ['system', 'light', 'dark'];
+    const currentIndex = order.indexOf(settings.theme);
+    const next = order[(currentIndex + 1) % order.length];
+    const updated = { ...settings, theme: next };
+    setSettings(updated);
+    saveSettings(updated);
+  }, [settings]);
 
   const handleSettingsChange = useCallback((newSettings: AppSettings) => {
     setSettings(newSettings);
@@ -121,6 +168,14 @@ function App() {
       setReport(result);
       setState('complete');
 
+      // Show native OS notification
+      if (settings.enableNotifications && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('Research Complete', {
+          body: query.length > 80 ? query.slice(0, 80) + '…' : query,
+          icon: '/favicon.ico'
+        });
+      }
+
       // Save to history using the local accumulator
       console.log('[History] Saving session with', accumulatedSteps.length, 'steps');
       const activityLog = accumulatedSteps.map(s => s.message);
@@ -192,12 +247,23 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
+      <header className="app-header" data-platform={platform}>
+        <div className="header-spacer" />
         <div className="header-title">
           <span className="logo">🔬</span>
           Local Deep Research
         </div>
         <div className="header-actions">
+          <button
+            className="header-btn"
+            onClick={cycleTheme}
+            title={`Theme: ${settings.theme}`}
+            aria-label={`Switch theme (current: ${settings.theme})`}
+          >
+            {settings.theme === 'system' ? <Monitor size={20} /> :
+             settings.theme === 'light' ? <Sun size={20} /> :
+             <Moon size={20} />}
+          </button>
           <button
             className="header-btn"
             onClick={() => setHistoryOpen(true)}

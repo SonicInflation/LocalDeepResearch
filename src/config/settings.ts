@@ -6,6 +6,8 @@ export type ResearchIntensity = 'quick' | 'standard' | 'deep' | 'comprehensive' 
 
 export type ReportDetailLevel = 'standard' | 'detailed' | 'comprehensive';
 
+export type ThemeMode = 'system' | 'light' | 'dark';
+
 export interface AIProviderConfig {
     type: AIProviderType;
     endpoint: string;
@@ -32,6 +34,8 @@ export interface AppSettings {
     aiProvider: AIProviderConfig;
     search: SearchConfig;
     research: ResearchConfig;
+    theme: ThemeMode;
+    enableNotifications: boolean;
 }
 
 // Intensity level configurations
@@ -118,7 +122,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
         enableStreaming: true,
         enableAdaptiveResearch: true,
         maxResearchIterations: 3
-    }
+    },
+    theme: 'system',
+    enableNotifications: true
 };
 
 const STORAGE_KEY = 'local-deep-research-settings';

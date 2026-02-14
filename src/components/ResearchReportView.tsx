@@ -190,6 +190,15 @@ export function ResearchReportView({ report, onNewResearch }: ResearchReportView
                         <Clock size={14} />
                         {report.generatedAt.toLocaleString()}
                     </span>
+                    {report.metadata?.researchDuration != null && (
+                        <span>
+                            <Clock size={14} />
+                            {report.metadata.researchDuration >= 60
+                                ? `${Math.floor(report.metadata.researchDuration / 60)}m ${report.metadata.researchDuration % 60}s`
+                                : `${report.metadata.researchDuration}s`
+                            }
+                        </span>
+                    )}
                     <span>
                         <FileText size={14} />
                         {report.sources.length} sources

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Brain, SkipForward, ArrowRight } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Brain, SkipForward, ArrowRight, Pencil } from 'lucide-react';
 import type { ClarifyingQuestion } from '../services/researchOrchestrator';
 
 interface ClarifyingQuestionsProps {
@@ -17,8 +17,22 @@ export function ClarifyingQuestions({
 }: ClarifyingQuestionsProps) {
     const [answers, setAnswers] = useState<Map<string, string>>(new Map());
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [showCustomInput, setShowCustomInput] = useState(false);
+    const customInputRef = useRef<HTMLInputElement>(null);
 
     const currentQuestion = questions[currentIndex];
+
+    // Focus custom input when it appears
+    useEffect(() => {
+        if (showCustomInput && customInputRef.current) {
+            customInputRef.current.focus();
+        }
+    }, [showCustomInput]);
+
+    // Reset custom input when moving to next question
+    useEffect(() => {
+        setShowCustomInput(false);
+    }, [currentIndex]);
     const isLastQuestion = currentIndex >= questions.length - 1;
 
     const handleAnswer = (answer: string) => {
@@ -30,6 +44,14 @@ export function ClarifyingQuestions({
             onComplete(newAnswers);
         } else {
             setCurrentIndex(currentIndex + 1);
+        }
+    };
+
+    const handleCustomSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const input = e.currentTarget.elements.namedItem('customAnswer') as HTMLInputElement;
+        if (input.value.trim()) {
+            handleAnswer(input.value.trim());
         }
     };
 
@@ -103,23 +125,69 @@ export function ClarifyingQuestions({
                                 {option}
                             </button>
                         ))}
+                        {!showCustomInput ? (
+                            <button
+                                className="custom-answer-toggle"
+                                onClick={() => setShowCustomInput(true)}
+                            >
+                                <Pencil size={14} />
+                                Write my own answer
+                            </button>
+                        ) : (
+                            <form onSubmit={handleCustomSubmit} className="custom-answer-form">
+                                <input
+                                    ref={customInputRef}
+                                    type="text"
+                                    name="customAnswer"
+                                    placeholder="Type your own answer..."
+                                />
+                                <button type="submit" className="submit-btn">
+                                    {isLastQuestion ? 'Start Research' : 'Next'}
+                                    <ArrowRight size={16} />
+                                </button>
+                            </form>
+                        )}
                     </div>
                 )}
 
                 {currentQuestion.type === 'confirm' && (
-                    <div className="confirm-options">
-                        <button
-                            className="confirm-btn yes"
-                            onClick={() => handleAnswer('Yes')}
-                        >
-                            Yes
-                        </button>
-                        <button
-                            className="confirm-btn no"
-                            onClick={() => handleAnswer('No')}
-                        >
-                            No
-                        </button>
+                    <div className="confirm-options-wrapper">
+                        <div className="confirm-options">
+                            <button
+                                className="confirm-btn yes"
+                                onClick={() => handleAnswer('Yes')}
+                            >
+                                Yes
+                            </button>
+                            <button
+                                className="confirm-btn no"
+                                onClick={() => handleAnswer('No')}
+                            >
+                                No
+                            </button>
+                        </div>
+                        {!showCustomInput ? (
+                            <button
+                                className="custom-answer-toggle"
+                                onClick={() => setShowCustomInput(true)}
+                            >
+                                <Pencil size={14} />
+                                Write my own answer
+                            </button>
+                        ) : (
+                            <form onSubmit={handleCustomSubmit} className="custom-answer-form">
+                                <input
+                                    ref={customInputRef}
+                                    type="text"
+                                    name="customAnswer"
+                                    placeholder="Type your own answer..."
+                                />
+                                <button type="submit" className="submit-btn">
+                                    {isLastQuestion ? 'Start Research' : 'Next'}
+                                    <ArrowRight size={16} />
+                                </button>
+                            </form>
+                        )}
                     </div>
                 )}
             </div>
