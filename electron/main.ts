@@ -4,6 +4,11 @@ import path from 'path'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// Disable GPU acceleration on Linux to prevent grey/blank screen
+if (process.platform === 'linux') {
+    app.disableHardwareAcceleration()
+}
+
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged
     ? process.env.DIST
@@ -13,6 +18,8 @@ let mainWindow: BrowserWindow | null = null
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
 function createWindow() {
+    const isMac = process.platform === 'darwin'
+
     mainWindow = new BrowserWindow({
         width: 1400,
         height: 900,
@@ -25,8 +32,10 @@ function createWindow() {
             sandbox: false,
             webSecurity: false
         },
-        titleBarStyle: 'hiddenInset',
-        trafficLightPosition: { x: 16, y: 16 },
+        ...(isMac ? {
+            titleBarStyle: 'hiddenInset',
+            trafficLightPosition: { x: 16, y: 16 },
+        } : {}),
         backgroundColor: '#0a0a0f'
     })
 
